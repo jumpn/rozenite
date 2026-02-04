@@ -55,6 +55,7 @@ module.exports = composeMetroConfigTransformers(
     withRozenite,
     {
       enabled: true,
+      enableMCP: true,
       enhanceMetroConfig: composeMetroConfigTransformers(
         withRozeniteExpoAtlasPlugin,
         withRozeniteRequireProfiler,

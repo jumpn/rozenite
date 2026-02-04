@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../../packages/mcp-bridge"
+    },
+    {
       "path": "../../packages/cli"
     },
     {

@@ -11,6 +11,7 @@
     "@react-navigation/native-stack": "^7.3.21",
     "@reduxjs/toolkit": "^2.8.2",
     "@rozenite/expo-atlas-plugin": "workspace:*",
+    "@rozenite/mcp-bridge": "workspace:*",
     "@rozenite/mmkv-plugin": "workspace:*",
     "@rozenite/network-activity-plugin": "workspace:*",
     "@rozenite/overlay-plugin": "workspace:*",

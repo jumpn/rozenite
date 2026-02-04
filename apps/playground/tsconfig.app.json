@@ -29,9 +29,6 @@
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx"],
   "references": [
     {
-      "path": "../../packages/overlay-plugin"
-    },
-    {
       "path": "../../packages/tanstack-query-plugin"
     },
     {
@@ -41,10 +38,16 @@
       "path": "../../packages/performance-monitor-plugin"
     },
     {
+      "path": "../../packages/overlay-plugin"
+    },
+    {
       "path": "../../packages/network-activity-plugin"
     },
     {
       "path": "../../packages/mmkv-plugin"
+    },
+    {
+      "path": "../../packages/mcp-bridge/tsconfig.lib.json"
     },
     {
       "path": "../../packages/cli/tsconfig.lib.json"
