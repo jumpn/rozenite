@@ -1,19 +1,11 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
-import path, { resolve } from 'node:path';
-import dts from 'vite-plugin-dts';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/mcp-server',
   base: './',
-  plugins: [
-    dts({
-      entryRoot: 'src',
-      tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
-      rollupTypes: true,
-    }),
-  ],
   build: {
     ssr: true,
     lib: {

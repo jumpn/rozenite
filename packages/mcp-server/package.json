@@ -31,7 +31,7 @@
   "author": "Szymon Chmal <szymon.chmal@callstack.com>",
   "license": "MIT",
   "scripts": {
-    "build": "tsc -b tsconfig.lib.json",
+    "build": "vite build",
     "clean": "rm -rf dist"
   },
   "exports": {
@@ -40,7 +40,7 @@
       "development": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "require": "./dist/index.cjs"
     }
   },
   "dependencies": {
