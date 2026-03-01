@@ -21,9 +21,6 @@
   "references": [
     {
       "path": "../mcp-shared/tsconfig.lib.json"
-    },
-    {
-      "path": "../plugin-bridge/tsconfig.lib.json"
     }
   ]
 }

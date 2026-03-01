@@ -71,19 +71,14 @@ async function main() {
   let registry: {
     tools: MCPTool[];
   } = {
-    tools: [
-      {
-        name: 'lorem-ipsum',
-        description: 'Generate a random Lorem Ipsum text',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            length: { type: 'number' },
-          },
-        },
-      }
-    ],
+    tools: [],
   }
+
+  // Deferred promise that resolves when real tools arrive from the WebSocket
+  let resolveToolsReady: () => void;
+  const toolsReady = new Promise<void>((resolve) => {
+    resolveToolsReady = resolve;
+  });
 
   const server = new McpServer(
     {
@@ -114,7 +109,13 @@ async function main() {
   };
 
   // Set up ListToolsRequestSchema handler to return current tools
+  // Defer the first response until real tools arrive from the WebSocket (or timeout)
+  const TOOLS_READY_TIMEOUT_MS = 10_000;
   server.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    await Promise.race([
+      toolsReady,
+      new Promise<void>((resolve) => setTimeout(resolve, TOOLS_READY_TIMEOUT_MS)),
+    ]);
     return { tools: registry.tools };
   });
 
@@ -157,14 +158,17 @@ async function main() {
           });
         },
         reject: (error) => {
+          const errorText = error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : JSON.stringify(error);
+          console.error('[rozenite-mcp] Tool call error:', errorText);
           resolve({
             content: [
               {
                 type: 'text' as const,
-                text:
-                  typeof error === 'string'
-                    ? error
-                    : JSON.stringify(error),
+                text: errorText,
               },
             ],
             isError: true,
@@ -187,6 +191,8 @@ async function main() {
 
     ws.on('open', () => {
       console.error(`[rozenite-mcp] Connected to ${wsUrl}`);
+      // Request tools immediately so the debugger sends them without passive waiting
+      ws!.send(JSON.stringify({ type: 'tools/list/request' }));
     });
 
     ws.on('message', (data: WebSocket.RawData) => {
@@ -197,6 +203,8 @@ async function main() {
           // Update tools array instead of calling registerTool
           registry.tools = message.tools;
           console.error(JSON.stringify(registry.tools, null, 2));
+          // Resolve the deferred promise so the first tools/list response unblocks
+          resolveToolsReady();
           server.sendToolListChanged();
           // console.error(JSON.stringify(message.tools, null, 2));
           // The MCP SDK will automatically notify clients about tool changes

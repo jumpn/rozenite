@@ -361,9 +361,6 @@ importers:
       '@rozenite/mcp-shared':
         specifier: workspace:*
         version: link:../mcp-shared
-      '@rozenite/plugin-bridge':
-        specifier: workspace:*
-        version: link:../plugin-bridge
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

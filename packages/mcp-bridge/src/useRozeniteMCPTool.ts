@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useRozeniteDevToolsClient } from '@rozenite/plugin-bridge';
 import {
   MCP_PLUGIN_ID,
   type MCPTool,
@@ -8,6 +7,7 @@ import {
   type ToolCallMessage,
   type ToolResultMessage,
 } from './types.js';
+import { useDirectWebSocketClient } from './useDirectWebSocketClient.js';
 
 type MCPEventMap = {
   'register-tool': RegisterToolMessage['payload'];
@@ -26,7 +26,7 @@ export function useRozeniteMCPTool<TInput = unknown, TOutput = unknown>(
   options: UseRozeniteMCPToolOptions<TInput, TOutput>
 ): void {
   const { tool, handler, enabled = true } = options;
-  const client = useRozeniteDevToolsClient<MCPEventMap>({
+  const client = useDirectWebSocketClient<MCPEventMap>({
     pluginId: MCP_PLUGIN_ID,
   });
 

@@ -29,7 +29,11 @@ interface CustomToolResult {
   error?: string;
 }
 
-type CustomMessage = CustomToolCall | CustomToolsList | CustomToolResult;
+interface CustomToolsListRequest {
+  type: 'tools/list/request';
+}
+
+type CustomMessage = CustomToolCall | CustomToolsList | CustomToolResult | CustomToolsListRequest;
 
 const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 
@@ -136,26 +140,57 @@ export class MCPWebSocketServer {
   }
 
   handleConnection(ws: WebSocket): void {
-    console.log('NEW CONNECTION!');
     this.clients.add(ws);
+    let deviceId: string | null = null;
 
     ws.on('message', async (data: WebSocket.RawData) => {
       try {
-        const message = JSON.parse(data.toString()) as CustomMessage;
+        const raw = JSON.parse(data.toString());
 
+        // Handle device connection handshake
+        if (raw.type === 'device/connect') {
+          deviceId = raw.deviceId;
+          const deviceName = raw.deviceName || 'Unknown Device';
+
+          // Remove from MCP clients set — this is a device, not a CLI client
+          this.clients.delete(ws);
+
+          this.handler.connectDevice(deviceId, deviceName, {
+            sendMessage: (msg: unknown) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(msg));
+              }
+            },
+          });
+          return;
+        }
+
+        // Forward device messages to handler
+        if (deviceId != null && raw.pluginId != null) {
+          this.handler.handleDeviceMessage(deviceId, raw);
+          return;
+        }
+
+        // Handle MCP client messages
+        const message = raw as CustomMessage;
         if (message.type === 'tool/call') {
           await this.handleToolCall(ws, message);
+        } else if (message.type === 'tools/list/request') {
+          this.sendToolsList(ws);
         }
       } catch (error) {
-        console.error('Failed to handle message:', error);
+        console.error('[Rozenite] Failed to handle WebSocket message:', error);
       }
     });
 
     ws.on('close', () => {
       this.clients.delete(ws);
+      if (deviceId != null) {
+        this.handler.disconnectDevice(deviceId);
+      }
     });
 
-    // Send initial tools list
+    // Send initial tools list (MCP clients need this; devices will ignore it)
     this.sendToolsList(ws);
   }
 
@@ -176,10 +211,11 @@ export class MCPWebSocketServer {
       };
       ws.send(JSON.stringify(response));
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Tool call failed';
       const response: CustomToolResult = {
         type: 'tool/result',
         id: message.id,
-        error: error instanceof Error ? error.message : 'Tool call failed',
+        error: errorMsg,
       };
       ws.send(JSON.stringify(response));
     }
