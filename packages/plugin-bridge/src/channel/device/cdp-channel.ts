@@ -16,65 +16,59 @@ export type CdpDomain = {
 
 const DOMAIN_NAME = 'rozenite';
 
-const getInitialCdpDomain = (): CdpDomain | null => {
+const initDomain = (): CdpDomain => {
   const dispatcher = global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__;
-  const bindingName = dispatcher.BINDING_NAME;
-  const globalBinding = (global as Record<string, unknown>)[bindingName];
-
-  if (globalBinding != null) {
-    return dispatcher.initializeDomain(DOMAIN_NAME);
-  }
-
-  return null;
-};
-
-const waitForDomain = (): Promise<CdpDomain> => {
-  return new Promise((resolve) => {
-    const handler = (domain: CdpDomain) => {
-      if (domain.name === DOMAIN_NAME) {
-        global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__.onDomainInitialization.removeEventListener(
-          handler
-        );
-
-        // This is on purpose. Without setTimeout the promise will be never resolved.
-        // Hermes bug?
-        setTimeout(() => resolve(domain));
-      }
-    };
-
-    global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__.onDomainInitialization.addEventListener(
-      handler
-    );
-  });
+  return dispatcher.initializeDomain(DOMAIN_NAME);
 };
 
 const getCdpDomainProxy = async (): Promise<Channel> => {
   const eventListeners = new Set<CdpMessageListener>();
-  let instance = getInitialCdpDomain();
+  let instance: CdpDomain;
 
-  if (!instance) {
-    instance = await waitForDomain();
+  try {
+    instance = initDomain();
+  } catch {
+    // Domain initialization may fail if the dispatcher isn't ready yet.
+    // Wait for it via onDomainInitialization event.
+    instance = await new Promise((resolve) => {
+      const dispatcher = global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__;
+      const handler = (domain: CdpDomain) => {
+        if (domain.name === DOMAIN_NAME) {
+          dispatcher.onDomainInitialization.removeEventListener(handler);
+          // setTimeout required — without it the promise never resolves (Hermes bug?)
+          setTimeout(() => resolve(domain));
+        }
+      };
+      dispatcher.onDomainInitialization.addEventListener(handler);
+
+      // Retry initialization periodically in case the dispatcher becomes ready later
+      const pollId = setInterval(() => {
+        try {
+          const domain = initDomain();
+          clearInterval(pollId);
+          dispatcher.onDomainInitialization.removeEventListener(handler);
+          setTimeout(() => resolve(domain));
+        } catch {
+          // Not ready yet, keep polling
+        }
+      }, 500);
+    });
   }
 
-  const getDomain = (): CdpDomain => {
-    if (!instance) {
-      throw new Error('Domain not initialized');
-    }
-    return instance;
-  };
+  const getDomain = (): CdpDomain => instance;
 
   const reinitHandler = (domain: CdpDomain) => {
     if (domain.name === DOMAIN_NAME) {
-      // Remove from the old instance
+      // Remove listeners from the old instance
       if (instance) {
         eventListeners.forEach((listener) => {
-          (instance as CdpDomain).onMessage.removeEventListener(listener);
+          instance.onMessage.removeEventListener(listener);
         });
       }
 
       instance = domain;
 
-      // Assign to the new instance
+      // Re-attach listeners to the new instance
       eventListeners.forEach((listener) => {
         domain.onMessage.addEventListener(listener);
       });
@@ -97,7 +91,6 @@ const getCdpDomainProxy = async (): Promise<Channel> => {
     },
     onMessage(listener: CdpMessageListener) {
       // Promises creating in listeners behave in weird way when not wrapped in setTimeout.
-      // This is probably the same case as with the domain initialization.
       const delayedListener = (message: unknown) => {
         setTimeout(() => {
           listener(message);
